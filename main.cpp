@@ -94,7 +94,6 @@ uint16_t calIPChecksum(uint8_t *data)
 {  
        	struct ipv4_hdr *iph=(struct ipv4_hdr*)data;
 	iph->ip_sum=0;
-
 	uint16_t checksum=calculate((uint16_t*)iph,iph->ip_hl*4);
 	iph->ip_sum = ntohs(~checksum);
 	return checksum;
