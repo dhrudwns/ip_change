@@ -1,11 +1,11 @@
 #include <iostream>
 #include <stdio.h>
-#include <string>					//std::string
-#include <string.h>					//memcpy, strcpy, strlen ~
+#include <string>					
+#include <string.h>					
 #include <regex>
 #include <unistd.h>
-#include <netinet/in.h>					// in_addr
-#include <arpa/inet.h>					// ntohs ~
+#include <netinet/in.h>					
+#include <arpa/inet.h>					
 #include <linux/types.h>
 #include <linux/netfilter.h>
 #include <iostream>
