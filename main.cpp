@@ -8,16 +8,22 @@
 #include <arpa/inet.h>					// ntohs ~
 #include <linux/types.h>
 #include <linux/netfilter.h>
+#include <iostream>
+#include <set>
 #include <errno.h>
 #include <netinet/in_systm.h>
 #define LIBNET_LIL_ENDIAN 1
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include "header.h"
+#include "flow.h"
+
 using namespace std;
 
 uint16_t flag = 0;
 uint16_t new_data_len;
+uint32_t before_ip, after_ip;
 uint8_t* new_data;
+static set<flowmanage> flow_check;
 
 void dump(unsigned char* buf, int size) {
 	int i;
@@ -40,16 +46,13 @@ struct Pseudoheader{
 
 uint16_t calculate(uint16_t* data, int dataLen)
 {
-    uint16_t oddbyte;
     uint32_t sum=0;
     while(dataLen>1){
 	    sum+=ntohs(*data++);
 	    dataLen-=2;
     }
     if(dataLen==1){
-	    oddbyte=0;
-	    *((uint8_t*)&oddbyte)=*(uint8_t*)data;
-	    sum+=ntohs(oddbyte);
+	    sum+=ntohs((uint8_t)*data);
     }
     //sum = (sum >> 16) + (sum & 0xffff);
     sum = (sum >> 16) + (sum & 0xffff);
@@ -87,6 +90,15 @@ uint16_t calTCPChecksum(uint8_t *data,int dataLen)
     return checksum;
 }
 
+uint16_t calIPChecksum(uint8_t *data)
+{  
+       	struct ipv4_hdr *iph=(struct ipv4_hdr*)data;
+	iph->ip_sum=0;
+
+	uint16_t checksum=calculate((uint16_t*)iph,iph->ip_hl*4);
+	iph->ip_sum = ntohs(~checksum);
+	return checksum;
+}
 
 static uint32_t print_pkt (struct nfq_data *tb)
 {
@@ -95,6 +107,7 @@ static uint32_t print_pkt (struct nfq_data *tb)
 	struct nfqnl_msg_packet_hdr *ph;
 	int ret;
 	unsigned char *data;
+	flowmanage flow;
 
 	ph = nfq_get_msg_packet_hdr(tb);
     	if (ph) {
@@ -107,25 +120,34 @@ static uint32_t print_pkt (struct nfq_data *tb)
 		struct ipv4_hdr* iph = (struct ipv4_hdr *) data;
 		if(iph->ip_p == 6){
 			struct tcp_hdr* tcph = (struct tcp_hdr *)((uint8_t*)iph+iph->ip_hl*4);
-			uint16_t payload_len =ntohs(iph->ip_len) - (iph->ip_hl*4) - (tcph->th_off*4);
-			uint8_t* payload = (uint8_t*)tcph+tcph->th_off*4;
-			if(ntohs(tcph->th_sport) == 80 && payload_len>0){
-				 static regex pattern("Red Velvet");
-				 string s_data = (char*)payload;
-				 smatch m;
-					 if(regex_search(s_data, m, pattern)) {
-				 		s_data = regex_replace(s_data, pattern, "Red abcdef");
-						memcpy(payload, s_data.c_str(), payload_len);
-						calTCPChecksum(new_data ,ret);
-						cout << s_data << endl;
-						new_data_len = ret;
-						flag = 1;
-					 }
-			}
-
-		}
+			flow.init(iph->ip_src, iph->ip_dst);
+			//cout << "1. " << iph->ip_dst << endl;
+			//cout << "2. " << static_cast<unsigned int>(before_ip) << endl;
+			//cout << "4. " << static_cast<unsigned int>(flow.ip_dst) << endl;
+			flow_check.insert(flow);
+			set<flowmanage>::iterator iter = flow_check.find(flow);
+			if(iter!=flow_check.end())
+			{
+				cout << "hello"<<endl;
+				if(before_ip == flow.ip_dst)
+				{
+					cout << "sibar" << endl;
+					memcpy(&iph->ip_dst, &after_ip, sizeof(iph->ip_dst));
+					cout << "tqtq" << endl;
+					cout << "1. " << before_ip << endl;
+					cout << "2. " << iph->ip_dst << endl;
+				}
+				else 
+					cout << "qtqt" << endl;
+				if(after_ip == flow.ip_src) memcpy(&iph->ip_src, &before_ip, sizeof(iph->ip_src));
+				calIPChecksum(new_data);
+				calTCPChecksum(new_data, ret);
+				new_data_len = ret;
+				flag = 1;
+				}
 	}
-
+	}
+			
 	return id;
 }
 
@@ -149,6 +171,13 @@ int main(int argc, char **argv)
     int fd;
     int rv;
     char buf[4096] __attribute__ ((aligned));
+
+    if(argc != 3){
+	printf("use : ./ip_change <before ip> <after ip>\n");
+	return 0;
+    }
+    before_ip = inet_addr(argv[1]);
+    after_ip = inet_addr(argv[2]);
 
     printf("opening library handle\n");
     h = nfq_open();
