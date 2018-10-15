@@ -24,9 +24,10 @@ static uint16_t flag = 0;
 static uint16_t new_data_len;
 static uint32_t before_ip, after_ip;
 static uint8_t* new_data;
+//static flowmanage flow;
 static set<flowmanage> flow_check;
-set<flowmanage>::iterator iter, r_iter;
-flowmanage flow;
+//static set<flowmanage>::iterator iter, r_iter;
+
 
 
 
@@ -124,12 +125,17 @@ static uint32_t print_pkt (struct nfq_data *tb)
         struct ipv4_hdr* iph = (struct ipv4_hdr *) data;
         if(iph->ip_p == 6){
             struct tcp_hdr* tcph = (struct tcp_hdr *)((uint8_t*)iph+iph->ip_hl*4);
+            static flowmanage flow;
             if(iph->ip_dst == before_ip){
-                flow.ip_dst = after_ip;
+                flow.init(iph->ip_src, after_ip);
                 flow_check.insert(flow);
+            }
+                set<flowmanage>::iterator iter, r_iter;
                 iter = flow_check.find(flow);
                 flow.reverse(flow);
                 r_iter = flow_check.find(flow);
+
+
                 if(iter!=flow_check.end())
                 {
                     memcpy(&iph->ip_dst, &after_ip, sizeof(iph->ip_dst));
@@ -138,8 +144,7 @@ static uint32_t print_pkt (struct nfq_data *tb)
                     new_data_len = ret;
                     flag = 1;
                 }
-            }
-            else if(r_iter!=flow_check.end())
+                else if(r_iter!=flow_check.end())
                 {
                     memcpy(&iph->ip_src, &before_ip, sizeof(iph->ip_src));
                     calIPChecksum(new_data);

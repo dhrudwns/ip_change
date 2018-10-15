@@ -14,8 +14,8 @@ public:
     }
     void reverse(flowmanage flow)
     {
-	    this->ip_src = flow.ip_dst;
-	    this->ip_dst = flow.ip_src;
+        this->ip_src = flow.ip_dst;
+        this->ip_dst = flow.ip_src;
     }
 
     bool operator < (const flowmanage &flow) const {
