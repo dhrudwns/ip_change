@@ -20,8 +20,8 @@
 
 using namespace std;
 
-static uint16_t flag = 0;
-static uint16_t new_data_len;
+static uint32_t flag = 0;
+static uint32_t new_data_len;
 static uint32_t before_ip, after_ip;
 static uint8_t* new_data;
 static set<flowmanage> flow_check;
