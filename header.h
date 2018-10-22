@@ -1,5 +1,5 @@
 #define ETHER_ADDR_LEN 6
-
+#include <stdint.h>
 /*
  *  Ethernet II header
  *  Static header size: 14 bytes
