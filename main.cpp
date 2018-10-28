@@ -1,14 +1,10 @@
 #include <iostream>
 #include <stdio.h>
-#include <string>
-#include <string.h>
-#include <regex>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/types.h>
 #include <linux/netfilter.h>
-#include <iostream>
 #include <set>
 #include <errno.h>
 #include <netinet/in_systm.h>
@@ -24,7 +20,7 @@ static uint32_t flag = 0;
 static uint32_t new_data_len;
 static uint32_t before_ip, after_ip;
 static uint8_t* new_data;
-static set<flowmanage> flow_check;
+set<flowmanage> flow_check;
 
 void dump(unsigned char* buf, int size) {
     int i;
@@ -68,8 +64,8 @@ uint16_t calTCPChecksum(uint8_t *data,int dataLen)
     struct ipv4_hdr *iph=(struct ipv4_hdr*)data;
     struct tcp_hdr *tcph=(struct tcp_hdr*)(data+iph->ip_hl*4);
 
-    memcpy(&pseudoheader.srcIP,&iph->ip_src,sizeof(pseudoheader.srcIP));
-    memcpy(&pseudoheader.destIP,&iph->ip_dst,sizeof(pseudoheader.destIP));
+    pseudoheader.srcIP = iph->ip_src;
+    pseudoheader.destIP = iph->ip_dst;
     pseudoheader.protocol=iph->ip_p;
     pseudoheader.TCPLen=htons(dataLen-(iph->ip_hl*4));
 
@@ -103,11 +99,11 @@ uint16_t calIPChecksum(uint8_t *data)
 
 static uint32_t print_pkt (struct nfq_data *tb)
 {
-    uint32_t id = 0;
+    int id = 0;
     flag = 0;
     struct nfqnl_msg_packet_hdr *ph;
-    uint32_t ret;
-    uint8_t *data;
+    int ret;
+    unsigned char *data;
 
     ph = nfq_get_msg_packet_hdr(tb);
         if (ph) {
@@ -120,34 +116,28 @@ static uint32_t print_pkt (struct nfq_data *tb)
         struct ipv4_hdr* iph = (struct ipv4_hdr *) data;
         if(iph->ip_p == IPPROTO_TCP){
             struct tcp_hdr* tcph = (struct tcp_hdr *)((uint8_t*)iph+iph->ip_hl*4);
-            flowmanage flow;
-            flow.init(iph->ip_src, iph->ip_dst);
-            set<flowmanage>::iterator iter, r_iter;
-            if(iph->ip_dst == before_ip){
+            flowmanage flow{iph->ip_src, iph->ip_dst};
+            set<flowmanage>::iterator r_iter;
+            if(iph->ip_dst == before_ip)
+            {
                 flow.init(iph->ip_src, after_ip);
                 flow_check.insert(flow);
-            }
-            iter = flow_check.find(flow);
-            flow.reverse(flow);
-            r_iter = flow_check.find(flow);
-
-            if(iter!=flow_check.end())
-            {
-                memcpy(&iph->ip_dst, &after_ip, sizeof(iph->ip_dst));
+                iph->ip_dst = after_ip;
                 calIPChecksum(new_data);
                 calTCPChecksum(new_data, ret);
                 new_data_len = ret;
                 flag = 1;
             }
-            else if(r_iter!=flow_check.end())
+            flow.reverse(flow);
+            r_iter = flow_check.find(flow);
+            if(r_iter!=flow_check.end())
             {
-                memcpy(&iph->ip_src, &before_ip, sizeof(iph->ip_src));
+                iph->ip_src = before_ip;
                 calIPChecksum(new_data);
                 calTCPChecksum(new_data ,ret);
                 new_data_len = ret;
                 flag = 1;
             }
-            else flag = 0;
     }
     return id;
     }
