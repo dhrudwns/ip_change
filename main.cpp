@@ -106,10 +106,10 @@ static uint32_t print_pkt (struct nfq_data *tb)
     unsigned char *data;
 
     ph = nfq_get_msg_packet_hdr(tb);
-        if (ph) {
+    if (ph) {
             id = ntohl(ph->packet_id);
         }
-
+        
     ret = nfq_get_payload(tb, &data);
     if(ret >= 0) {
         new_data = data;
